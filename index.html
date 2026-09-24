@@ -116,10 +116,10 @@
     <form method="dialog" id="settingsForm">
       <h2>Settings</h2>
       <label>Latitude
-        <input id="latitudeInput" type="number" step="0.000001" required>
+        <input id="latitudeInput" type="number" step="any" min="-90" max="90" required>
       </label>
       <label>Longitude
-        <input id="longitudeInput" type="number" step="0.000001" required>
+        <input id="longitudeInput" type="number" step="any" min="-180" max="180" required>
       </label>
       <label>Compass calibration offset
         <input id="offsetInput" type="number" step="0.1">

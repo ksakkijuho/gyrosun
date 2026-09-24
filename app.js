@@ -61,7 +61,7 @@ function updateSolarData() {
 
   $("timeValue").textContent = formatTime(date);
   $("dateValue").textContent = formatDate(date);
-  $("locationValue").textContent = `${settings.latitude.toFixed(4)}, ${settings.longitude.toFixed(4)}`;
+  $("locationValue").textContent = `${settings.latitude.toFixed(6)}, ${settings.longitude.toFixed(6)}`;
   $("azimuthValue").textContent = formatAngle(azimuth);
   $("altitudeValue").textContent = `${altitude.toFixed(1)}°`;
   $("sunriseValue").textContent = validDate(times.sunrise) ? formatTime(times.sunrise) : "—";
@@ -85,7 +85,7 @@ function updateSunMarker(azimuth, altitude) {
   const angle = relativeAzimuth * Math.PI / 180;
   const x = 50 + Math.sin(angle) * radius;
   const phonePitch = devicePitch === null ? 0 : devicePitch;
-  const verticalAngle = Math.max(-60, Math.min(60, altitude - phonePitch));
+  const verticalAngle = Math.max(-60, Math.min(60, altitude + phonePitch));
   const y = 50 - Math.cos(angle) * (radius * 0.75) - verticalAngle * 0.55;
 
   $("sunMarker").style.left = `${x}%`;
@@ -341,7 +341,7 @@ function relativeHorizontalPosition(azimuth, altitude) {
 
   const relative = normalize(azimuth - heading);
   const horizontal = ((relative + 180) % 360) - 180;
-  const vertical = altitude - phonePitch;
+  const vertical = altitude + phonePitch;
 
   // Approximate camera field of view. Portrait orientation is assumed.
   const hfov = 70;
