@@ -9,6 +9,7 @@ const defaults = {
 let settings = loadSettings();
 let deviceHeading = null;
 let orientationEnabled = false;
+let locationState = "not started";
 let selectedDate = new Date();
 let selectedMinutes = selectedDate.getHours() * 60 + selectedDate.getMinutes();
 let playing = false;
@@ -93,10 +94,29 @@ function updateSunMarker(azimuth, altitude) {
 }
 
 function updateHeading(heading) {
-  deviceHeading = normalize(heading + Number(settings.calibrationOffset || 0));
+  const calibrated = normalize(heading + Number(settings.calibrationOffset || 0));
+  if (deviceHeading !== null) {
+    const delta = Math.abs(normalize(calibrated - deviceHeading + 180) - 180);
+    if (delta < 0.15) return;
+  }
+  deviceHeading = calibrated;
   $("headingValue").textContent = formatAngle(deviceHeading);
-  $("status").textContent = `Orientation active · heading ${formatAngle(deviceHeading)}`;
-  updateSolarData();
+  $("status").textContent = locationState === "active"
+    ? `GPS + orientation active · heading ${formatAngle(deviceHeading)}`
+    : `Orientation active · heading ${formatAngle(deviceHeading)}`;
+  updateSunMarker(getSunAzimuth(), getSunAltitude());
+}
+
+function getSunPosition() {
+  return SunCalc.getPosition(getSelectedDateTime(), settings.latitude, settings.longitude);
+}
+
+function getSunAzimuth() {
+  return normalize(getSunPosition().azimuth * 180 / Math.PI + 180);
+}
+
+function getSunAltitude() {
+  return getSunPosition().altitude * 180 / Math.PI;
 }
 
 function handleOrientation(event) {
@@ -116,6 +136,34 @@ function handleOrientation(event) {
   }
 
   if (heading !== null) updateHeading(heading);
+}
+
+function startLocation() {
+  if (!navigator.geolocation) {
+    locationState = "unsupported";
+    $("status").textContent = "Phone location is not supported by this browser.";
+    return;
+  }
+  locationState = "requesting";
+  $("status").textContent = "Requesting phone location…";
+  navigator.geolocation.watchPosition(
+    position => {
+      settings.latitude = position.coords.latitude;
+      settings.longitude = position.coords.longitude;
+      locationState = "active";
+      saveSettings();
+      updateSolarData();
+      if (deviceHeading !== null) {
+        $("status").textContent = `GPS + orientation active · heading ${formatAngle(deviceHeading)}`;
+      }
+    },
+    error => {
+      locationState = "error";
+      const messages = {1:"Location permission was denied.",2:"Phone location is unavailable.",3:"Location request timed out."};
+      $("status").textContent = messages[error.code] || "Could not get phone location.";
+    },
+    { enableHighAccuracy: true, maximumAge: 30000, timeout: 15000 }
+  );
 }
 
 async function enableOrientation() {
@@ -203,3 +251,4 @@ $("settingsForm").addEventListener("submit", event => {
 });
 
 setNow();
+startLocation();
