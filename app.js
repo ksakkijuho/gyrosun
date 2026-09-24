@@ -8,6 +8,7 @@ const defaults = {
 
 let settings = loadSettings();
 let deviceHeading = null;
+let devicePitch = null;
 let orientationEnabled = false;
 let locationState = "not started";
 let selectedDate = new Date();
@@ -83,8 +84,9 @@ function updateSunMarker(azimuth, altitude) {
   const radius = 38;
   const angle = relativeAzimuth * Math.PI / 180;
   const x = 50 + Math.sin(angle) * radius;
-  const verticalAngle = Math.max(-90, Math.min(90, altitude));
-  const y = 50 - Math.cos(angle) * (radius * 0.75) - verticalAngle * 0.20;
+  const phonePitch = devicePitch === null ? 0 : devicePitch;
+  const verticalAngle = Math.max(-60, Math.min(60, altitude - phonePitch));
+  const y = 50 - Math.cos(angle) * (radius * 0.75) - verticalAngle * 0.55;
 
   $("sunMarker").style.left = `${x}%`;
   $("sunMarker").style.top = `${Math.max(8, Math.min(92, y))}%`;
@@ -93,17 +95,24 @@ function updateSunMarker(azimuth, altitude) {
     altitude < -0.8 ? "Below horizon" : `${altitude.toFixed(1)}°`;
 }
 
-function updateHeading(heading) {
+function updateHeading(heading, pitch = null) {
   const calibrated = normalize(heading + Number(settings.calibrationOffset || 0));
-  if (deviceHeading !== null) {
-    const delta = Math.abs(normalize(calibrated - deviceHeading + 180) - 180);
-    if (delta < 0.15) return;
+
+  if (deviceHeading === null ||
+      Math.abs(normalize(calibrated - deviceHeading + 180) - 180) >= 0.15) {
+    deviceHeading = calibrated;
   }
-  deviceHeading = calibrated;
+
+  if (pitch !== null && Number.isFinite(pitch)) {
+    // Portrait orientation: beta≈90° means upright toward the horizon.
+    devicePitch = Math.max(-90, Math.min(90, 90 - pitch));
+  }
+
   $("headingValue").textContent = formatAngle(deviceHeading);
   $("status").textContent = locationState === "active"
-    ? `GPS + orientation active · heading ${formatAngle(deviceHeading)}`
-    : `Orientation active · heading ${formatAngle(deviceHeading)}`;
+    ? `GPS + orientation active · heading ${formatAngle(deviceHeading)} · tilt ${devicePitch === null ? "—" : devicePitch.toFixed(0) + "°"}`
+    : `Orientation active · heading ${formatAngle(deviceHeading)} · tilt ${devicePitch === null ? "—" : devicePitch.toFixed(0) + "°"}`;
+
   updateSunMarker(getSunAzimuth(), getSunAltitude());
 }
 
@@ -122,20 +131,22 @@ function getSunAltitude() {
 function handleOrientation(event) {
   let heading = null;
 
-  // iOS Safari commonly exposes this directly.
   if (typeof event.webkitCompassHeading === "number" && event.webkitCompassHeading >= 0) {
     heading = event.webkitCompassHeading;
   } else if (event.absolute && typeof event.alpha === "number") {
-    // For absolute orientation, alpha is generally clockwise from north
-    // when using the standard device coordinate convention.
     heading = 360 - event.alpha;
   } else if (typeof event.alpha === "number") {
-    // Best-effort fallback for browsers that don't expose an absolute heading.
     heading = 360 - event.alpha;
-    $("status").textContent = "Orientation active · relative sensor mode";
   }
 
-  if (heading !== null) updateHeading(heading);
+  const pitch = typeof event.beta === "number" ? event.beta : null;
+
+  if (heading !== null && Number.isFinite(heading)) {
+    updateHeading(heading, pitch);
+  } else if (pitch !== null) {
+    devicePitch = Math.max(-90, Math.min(90, 90 - pitch));
+    updateSunMarker(getSunAzimuth(), getSunAltitude());
+  }
 }
 
 function startLocation() {
@@ -326,17 +337,25 @@ function solarFor(date) {
 
 function relativeHorizontalPosition(azimuth, altitude) {
   const heading = deviceHeading === null ? 0 : deviceHeading;
+  const phonePitch = devicePitch === null ? 0 : devicePitch;
+
   const relative = normalize(azimuth - heading);
-  const rad = relative * Math.PI / 180;
+  const horizontal = ((relative + 180) % 360) - 180;
+  const vertical = altitude - phonePitch;
 
-  // A deliberately simple camera projection:
-  // horizontal angle maps to screen X, altitude to screen Y.
-  // ±75° is the useful horizontal field represented by the overlay.
-  const hfov = 75;
-  const x = 0.5 + Math.tan(rad) / Math.tan(hfov * Math.PI / 360) * 0.5;
-  const y = 0.5 - Math.tan(Math.max(-60, Math.min(60, altitude)) * Math.PI / 180) * 0.42;
+  // Approximate camera field of view. Portrait orientation is assumed.
+  const hfov = 70;
+  const vfov = 70;
 
-  return { x, y, relative };
+  const x = 0.5 +
+    Math.tan(horizontal * Math.PI / 180) /
+    (2 * Math.tan(hfov * Math.PI / 360));
+
+  const y = 0.5 -
+    Math.tan(vertical * Math.PI / 180) /
+    (2 * Math.tan(vfov * Math.PI / 360));
+
+  return { x, y, relative, vertical };
 }
 
 function drawTrajectory() {

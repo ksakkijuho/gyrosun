@@ -40,3 +40,8 @@ Example:
 - Draws the calculated solar trajectory over the camera image.
 - Shows hourly trajectory labels and the current Sun position.
 - The trajectory is based on the current phone heading and configured/GPS location.
+
+
+## V1.3
+
+The camera trajectory now uses the phone's front/back tilt (`beta`) in addition to heading. Portrait orientation is assumed: upright points at the horizon, tilting upward moves the virtual Sun upward on the camera overlay.
