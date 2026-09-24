@@ -252,3 +252,198 @@ $("settingsForm").addEventListener("submit", event => {
 
 setNow();
 startLocation();
+
+
+// ---------------- Camera + trajectory view ----------------
+
+let cameraStream = null;
+
+const tabButtons = document.querySelectorAll(".tab");
+const tabPanels = document.querySelectorAll(".tab-panel");
+
+tabButtons.forEach(button => {
+  button.addEventListener("click", () => {
+    tabButtons.forEach(b => b.classList.remove("active"));
+    tabPanels.forEach(p => p.classList.remove("active"));
+    button.classList.add("active");
+    document.getElementById(button.dataset.tab).classList.add("active");
+
+    if (button.dataset.tab === "cameraTab") {
+      drawTrajectory();
+    }
+  });
+});
+
+async function enableCamera() {
+  try {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      throw new Error("Camera access is not supported by this browser.");
+    }
+
+    cameraStream = await navigator.mediaDevices.getUserMedia({
+      video: {
+        facingMode: { ideal: "environment" },
+        width: { ideal: 1920 },
+        height: { ideal: 1080 }
+      },
+      audio: false
+    });
+
+    $("cameraVideo").srcObject = cameraStream;
+    $("cameraButton").disabled = true;
+    $("cameraStopButton").disabled = false;
+    $("cameraButton").textContent = "Camera enabled";
+    drawTrajectory();
+  } catch (error) {
+    $("cameraSunLabel").textContent = "Camera unavailable";
+    $("cameraSunDetails").textContent = error.message;
+  }
+}
+
+function stopCamera() {
+  if (cameraStream) {
+    cameraStream.getTracks().forEach(track => track.stop());
+    cameraStream = null;
+  }
+  $("cameraVideo").srcObject = null;
+  $("cameraButton").disabled = false;
+  $("cameraStopButton").disabled = true;
+  $("cameraButton").textContent = "Enable camera";
+}
+
+$("cameraButton").addEventListener("click", enableCamera);
+$("cameraStopButton").addEventListener("click", stopCamera);
+$("trajectoryHours").addEventListener("change", drawTrajectory);
+window.addEventListener("resize", drawTrajectory);
+
+function solarFor(date) {
+  const pos = SunCalc.getPosition(date, settings.latitude, settings.longitude);
+  return {
+    azimuth: normalize(pos.azimuth * 180 / Math.PI + 180),
+    altitude: pos.altitude * 180 / Math.PI
+  };
+}
+
+function relativeHorizontalPosition(azimuth, altitude) {
+  const heading = deviceHeading === null ? 0 : deviceHeading;
+  const relative = normalize(azimuth - heading);
+  const rad = relative * Math.PI / 180;
+
+  // A deliberately simple camera projection:
+  // horizontal angle maps to screen X, altitude to screen Y.
+  // ±75° is the useful horizontal field represented by the overlay.
+  const hfov = 75;
+  const x = 0.5 + Math.tan(rad) / Math.tan(hfov * Math.PI / 360) * 0.5;
+  const y = 0.5 - Math.tan(Math.max(-60, Math.min(60, altitude)) * Math.PI / 180) * 0.42;
+
+  return { x, y, relative };
+}
+
+function drawTrajectory() {
+  const canvas = $("trajectoryCanvas");
+  if (!canvas) return;
+
+  const rect = canvas.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  const width = Math.max(1, Math.round(rect.width * dpr));
+  const height = Math.max(1, Math.round(rect.height * dpr));
+
+  if (canvas.width !== width || canvas.height !== height) {
+    canvas.width = width;
+    canvas.height = height;
+  }
+
+  const ctx = canvas.getContext("2d");
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const w = rect.width;
+  const h = rect.height;
+  ctx.clearRect(0, 0, w, h);
+
+  const now = getSelectedDateTime();
+  const hours = Number($("trajectoryHours").value);
+  const stepMinutes = hours === 12 ? 30 : 10;
+  const start = new Date(now.getTime() - hours * 3600000);
+  const end = new Date(now.getTime() + hours * 3600000);
+
+  let previous = null;
+  let currentPoint = null;
+  let visibleCount = 0;
+
+  for (let t = new Date(start); t <= end; t = new Date(t.getTime() + stepMinutes * 60000)) {
+    const sun = solarFor(t);
+    if (sun.altitude < -1) {
+      previous = null;
+      continue;
+    }
+
+    const p = relativeHorizontalPosition(sun.azimuth, sun.altitude);
+    if (p.x < -0.4 || p.x > 1.4 || p.y < -0.3 || p.y > 1.3) {
+      previous = null;
+      continue;
+    }
+
+    const x = p.x * w;
+    const y = p.y * h;
+
+    if (previous) {
+      ctx.beginPath();
+      ctx.moveTo(previous.x, previous.y);
+      ctx.lineTo(x, y);
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = "rgba(255,212,71,.75)";
+      ctx.stroke();
+    }
+
+    // Hour markers
+    if (t.getMinutes() === 0) {
+      ctx.beginPath();
+      ctx.arc(x, y, 3, 0, Math.PI * 2);
+      ctx.fillStyle = "rgba(255,212,71,.95)";
+      ctx.fill();
+
+      ctx.font = "12px system-ui";
+      ctx.fillStyle = "rgba(255,255,255,.9)";
+      ctx.fillText(formatTime(t), x + 7, y - 7);
+    }
+
+    const currentDelta = Math.abs(t - now);
+    if (currentDelta < stepMinutes * 30000) {
+      currentPoint = { x, y, sun };
+    }
+
+    previous = { x, y };
+    visibleCount++;
+  }
+
+  if (currentPoint) {
+    ctx.beginPath();
+    ctx.arc(currentPoint.x, currentPoint.y, 18, 0, Math.PI * 2);
+    ctx.fillStyle = "rgba(255,212,71,.18)";
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(currentPoint.x, currentPoint.y, 7, 0, Math.PI * 2);
+    ctx.fillStyle = "rgba(255,212,71,1)";
+    ctx.fill();
+
+    $("cameraSunLabel").textContent =
+      currentPoint.sun.altitude < -1 ? "Sun below horizon" : "Current Sun";
+    $("cameraSunDetails").textContent =
+      `${formatAngle(currentPoint.sun.azimuth)} azimuth · ${currentPoint.sun.altitude.toFixed(1)}° altitude`;
+  } else {
+    $("cameraSunLabel").textContent = "Sun not visible";
+    $("cameraSunDetails").textContent = "No above-horizon trajectory in the current view";
+  }
+
+  if (!visibleCount) {
+    $("cameraSunLabel").textContent = "No trajectory";
+    $("cameraSunDetails").textContent = "Try a different time or horizon";
+  }
+}
+
+// Keep the trajectory moving with the orientation sensor without rebuilding the UI.
+const originalUpdateSunMarker = updateSunMarker;
+updateSunMarker = function(azimuth, altitude) {
+  originalUpdateSunMarker(azimuth, altitude);
+  const cameraPanel = $("cameraTab");
+  if (cameraPanel && cameraPanel.classList.contains("active")) drawTrajectory();
+};

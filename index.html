@@ -17,8 +17,14 @@
       <button id="settingsButton" class="icon-button" aria-label="Settings">⚙</button>
     </header>
 
+    <nav class="tabs" aria-label="Views">
+      <button class="tab active" data-tab="compassTab">Compass</button>
+      <button class="tab" data-tab="cameraTab">Camera + trajectory</button>
+    </nav>
+
     <section id="status" class="status">Orientation not started</section>
 
+    <section id="compassTab" class="tab-panel active">
     <section class="compass-card">
       <div id="compass" class="compass">
         <div class="tick major n"><span>N</span></div>
@@ -67,6 +73,43 @@
       Point the top of the phone toward the horizon. The sun marker shows where the calculated Sun is relative to your current heading.
       Sensor accuracy varies by device and location.
     </p>
+    </section>
+
+    <section id="cameraTab" class="tab-panel">
+      <section class="camera-card">
+        <div class="camera-stage">
+          <video id="cameraVideo" playsinline autoplay muted></video>
+          <canvas id="trajectoryCanvas"></canvas>
+          <div id="cameraCenter" class="camera-center"></div>
+          <div class="camera-readout">
+            <strong id="cameraSunLabel">Sun</strong>
+            <span id="cameraSunDetails">—</span>
+          </div>
+        </div>
+
+        <div class="camera-controls">
+          <button id="cameraButton" class="primary">Enable camera</button>
+          <button id="cameraStopButton" class="secondary" disabled>Stop camera</button>
+        </div>
+
+        <div class="trajectory-controls">
+          <label>
+            <span>Trajectory horizon</span>
+            <select id="trajectoryHours">
+              <option value="2">±2 hours</option>
+              <option value="4" selected>±4 hours</option>
+              <option value="6">±6 hours</option>
+              <option value="12">Full day</option>
+            </select>
+          </label>
+        </div>
+
+        <p class="hint">
+          The camera view is currently a directional overlay: the calculated solar path is projected onto the screen using the phone heading.
+          Hold the phone level for the most useful trajectory view.
+        </p>
+      </section>
+    </section>
   </main>
 
   <dialog id="settingsDialog">
