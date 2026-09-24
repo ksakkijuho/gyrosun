@@ -105,7 +105,7 @@ function updateHeading(heading, pitch = null) {
 
   if (pitch !== null && Number.isFinite(pitch)) {
     // Portrait orientation: beta≈90° means upright toward the horizon.
-    devicePitch = Math.max(-90, Math.min(90, 90 - pitch));
+    devicePitch = Math.max(-90, Math.min(90, pitch - 90));
   }
 
   $("headingValue").textContent = formatAngle(deviceHeading);
@@ -144,7 +144,7 @@ function handleOrientation(event) {
   if (heading !== null && Number.isFinite(heading)) {
     updateHeading(heading, pitch);
   } else if (pitch !== null) {
-    devicePitch = Math.max(-90, Math.min(90, 90 - pitch));
+    devicePitch = Math.max(-90, Math.min(90, pitch - 90));
     updateSunMarker(getSunAzimuth(), getSunAltitude());
   }
 }

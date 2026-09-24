@@ -45,3 +45,6 @@ Example:
 ## V1.3
 
 The camera trajectory now uses the phone's front/back tilt (`beta`) in addition to heading. Portrait orientation is assumed: upright points at the horizon, tilting upward moves the virtual Sun upward on the camera overlay.
+
+
+V1.3.1: inverted the portrait tilt mapping so tilting the phone downward moves the projected Sun trajectory upward on the screen, matching the camera movement.
