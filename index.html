@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#10131a">
+  <title>Sun Compass</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="app">
+    <header>
+      <div>
+        <h1>Sun Compass</h1>
+        <p class="subtitle">V1 · solar position + phone orientation</p>
+      </div>
+      <button id="settingsButton" class="icon-button" aria-label="Settings">⚙</button>
+    </header>
+
+    <section id="status" class="status">Orientation not started</section>
+
+    <section class="compass-card">
+      <div id="compass" class="compass">
+        <div class="tick major n"><span>N</span></div>
+        <div class="tick major e"><span>E</span></div>
+        <div class="tick major s"><span>S</span></div>
+        <div class="tick major w"><span>W</span></div>
+        <div id="headingRing" class="heading-ring"></div>
+        <div id="sunMarker" class="sun-marker">
+          <span class="sun-symbol">☀</span>
+          <span id="sunMarkerLabel">Sun</span>
+        </div>
+        <div class="center-marker"></div>
+      </div>
+      <div class="readouts">
+        <div><span>Phone heading</span><strong id="headingValue">—</strong></div>
+        <div><span>Sun azimuth</span><strong id="azimuthValue">—</strong></div>
+        <div><span>Sun altitude</span><strong id="altitudeValue">—</strong></div>
+      </div>
+      <button id="orientationButton" class="primary">Enable phone orientation</button>
+    </section>
+
+    <section class="time-card">
+      <div class="time-row">
+        <div>
+          <span class="eyebrow">Sun position for</span>
+          <strong id="timeValue">—</strong>
+        </div>
+        <button id="nowButton" class="secondary">Now</button>
+      </div>
+      <input id="timeSlider" type="range" min="0" max="1439" step="1" value="720">
+      <div class="range-labels"><span>00:00</span><span>06:00</span><span>12:00</span><span>18:00</span><span>24:00</span></div>
+      <div class="day-buttons">
+        <button id="playButton" class="secondary">▶ Play</button>
+        <button id="todayButton" class="secondary">Today</button>
+      </div>
+    </section>
+
+    <section class="info-card">
+      <div><span>Date</span><strong id="dateValue">—</strong></div>
+      <div><span>Location</span><strong id="locationValue">—</strong></div>
+      <div><span>Sunrise</span><strong id="sunriseValue">—</strong></div>
+      <div><span>Sunset</span><strong id="sunsetValue">—</strong></div>
+    </section>
+
+    <p class="hint">
+      Point the top of the phone toward the horizon. The sun marker shows where the calculated Sun is relative to your current heading.
+      Sensor accuracy varies by device and location.
+    </p>
+  </main>
+
+  <dialog id="settingsDialog">
+    <form method="dialog" id="settingsForm">
+      <h2>Settings</h2>
+      <label>Latitude
+        <input id="latitudeInput" type="number" step="0.000001" required>
+      </label>
+      <label>Longitude
+        <input id="longitudeInput" type="number" step="0.000001" required>
+      </label>
+      <label>Compass calibration offset
+        <input id="offsetInput" type="number" step="0.1">
+      </label>
+      <p class="small">Positive offset rotates the reported phone heading clockwise. Use this if the compass is consistently off by a known amount.</p>
+      <div class="dialog-buttons">
+        <button value="cancel" class="secondary">Cancel</button>
+        <button id="saveSettingsButton" value="default" class="primary">Save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="https://cdn.jsdelivr.net/npm/suncalc@1.9.0/suncalc.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
